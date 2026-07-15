@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  passwordHash  String
+  totalStorage  BigInt    @default(109951162777600) // 100TB 字节
+  usedStorage   BigInt    @default(0)
+  createdAt     DateTime  @default(now())
+  files         File[]
+  folders       Folder[]
+  btTasks       BtDownloadTask[]
+}
+
+model Folder {
+  id        String    @id @default(uuid())
+  name      String
+  userId    String
+  parentId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Folder?   @relation("FolderParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[]  @relation("FolderParent")
+  files     File[]
+}
+
+model File {
+  id          String   @id @default(uuid())
+  name        String
+  size        BigInt
+  mimeType    String?
+  path        String   // 磁盘/对象存储真实路径
+  folderId    String?
+  userId      String
+  isDeleted   Boolean  @default(false) // 回收站软删除
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+}
+
+enum BtTaskStatus {
+  PENDING
+  DOWNLOADING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+model BtDownloadTask {
+  id            String        @id @default(uuid())
+  userId        String
+  rpcGid        String?       // Aria2任务ID
+  taskType      String        // magnet / torrent / url
+  source        String        // 磁力链接/种子文本
+  targetFolderId String
+  totalSize     BigInt        @default(0)
+  completedSize BigInt        @default(0)
+  status        BtTaskStatus  @default(PENDING)
+  errorMsg      String?
+  createdAt     DateTime      @default(now())
+  finishedAt    DateTime?
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

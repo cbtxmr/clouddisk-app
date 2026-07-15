@@ -1,0 +1,42 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: clouddisk
+      POSTGRES_PASSWORD: SuperSecretPass
+      POSTGRES_DB: clouddb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+
+  aria2:
+    image: p3terx/aria2-pro
+    environment:
+      RPC_SECRET: ChangeThisSecretKey
+      RPC_PORT: 6800
+    volumes:
+      - ./bt_tmp:/downloads
+    ports: ["6800:6800", "6881:6881/udp"]
+
+  backend:
+    build: ./backend
+    depends_on: [postgres, aria2]
+    environment:
+      DATABASE_URL: postgresql://clouddisk:SuperSecretPass@postgres:5432/clouddb?schema=public
+      ARIA2_HOST: aria2
+      ARIA2_PORT: 6800
+      ARIA2_RPC_SECRET: ChangeThisSecretKey
+      ARIA2_TMP_DIR: /downloads
+      STORAGE_ROOT: /storage
+    volumes:
+      - ./storage:/storage
+    ports: ["3000:3000"]
+
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: [backend]
+
+volumes:
+  postgres_data:
